@@ -1,0 +1,10 @@
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+backend/data
+.claude
+.git
+k8s
+Jenkinsfile
+README.md

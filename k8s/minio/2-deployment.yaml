@@ -1,0 +1,88 @@
+# MODE 3 (challenge): the app stores files and accounts in MinIO instead of a local disk.
+# No volume here at all. The init container waits until MinIO is ready, then the app starts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vortex
+  namespace: vortex
+  labels:
+    app: vortex
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vortex
+  template:
+    metadata:
+      labels:
+        app: vortex
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsNonRoot: true
+      initContainers:
+        - name: wait-for-minio
+          image: vortex-file-upload:latest   # reuses the app image, which has Python
+          command:
+            - python
+            - -c
+            - |
+              import time, urllib.request
+              while True:
+                  try:
+                      urllib.request.urlopen("http://minio:9000/minio/health/ready", timeout=3)
+                      break
+                  except Exception:
+                      print("waiting for minio...", flush=True)
+                      time.sleep(3)
+      containers:
+        - name: app
+          image: vortex-file-upload:latest   # Jenkins swaps in the image it just built
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: STORAGE
+              value: minio
+            - name: MINIO_ENDPOINT
+              value: minio:9000
+            - name: MINIO_BUCKET
+              value: uploads
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vortex-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vortex-secret
+                  key: MINIO_ROOT_PASSWORD
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vortex-secret
+                  key: SECRET_KEY
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

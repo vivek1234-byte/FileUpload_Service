@@ -1,0 +1,72 @@
+# MODE 2: PersistentVolumeClaim.
+# Same app as the emptyDir mode; only the volume at the bottom is different.
+# Delete the pod and the new one still has every file and account.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vortex
+  namespace: vortex
+  labels:
+    app: vortex
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # the old pod lets go of the disk before the new one mounts it
+  selector:
+    matchLabels:
+      app: vortex
+  template:
+    metadata:
+      labels:
+        app: vortex
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsNonRoot: true
+        fsGroup: 10001   # makes the mounted disk writable for the app user
+      containers:
+        - name: app
+          image: vortex-file-upload:latest   # Jenkins swaps in the image it just built
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: STORAGE
+              value: local
+            - name: STORAGE_VOLUME
+              value: pvc
+            - name: DATA_DIR
+              value: /data
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vortex-secret
+                  key: SECRET_KEY
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vortex-data

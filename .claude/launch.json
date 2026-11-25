@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vortex-backend",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATA_DIR=/home/vivek/Data/file-upload-service/backend/data",
+        "/home/vivek/Data/file-upload-service/backend/.venv/bin/gunicorn",
+        "--chdir", "/home/vivek/Data/file-upload-service/backend",
+        "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "8", "--timeout", "300",
+        "wsgi:app"
+      ],
+      "port": 8080
+    },
+    {
+      "name": "vortex-frontend",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "/home/vivek/Data/file-upload-service/frontend"],
+      "port": 4173
+    }
+  ]
+}

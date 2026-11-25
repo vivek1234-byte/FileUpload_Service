@@ -1,0 +1,14 @@
+# MODE 2: PersistentVolumeClaim.
+# A disk that lives outside the pod. It stays when the pod is deleted.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vortex-data
+  namespace: vortex
+spec:
+  accessModes:
+    - ReadWriteOnce   # one node at a time, so the Deployment keeps replicas: 1
+  resources:
+    requests:
+      storage: 1Gi
+  # No storageClassName: the cluster's default is used (minikube: "standard").

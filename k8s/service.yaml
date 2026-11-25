@@ -1,0 +1,15 @@
+# Opens the app on every node at port 30080 (minikube: `minikube service vortex -n vortex --url`).
+# The same Service works for all three storage modes: it finds the pod by its `app: vortex` label.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vortex
+  namespace: vortex
+spec:
+  type: NodePort
+  selector:
+    app: vortex
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30080
