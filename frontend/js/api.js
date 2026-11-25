@@ -4,7 +4,7 @@
 //   POST   /auth/register     { username, password } -> 201 { username, token }   (409 if name taken)
 //   POST   /auth/login        { username, password } -> 200 { username, token }   (401 if wrong)
 //   GET    /auth/me           -> { username }                                     (401 if token invalid)
-//   GET    /health            -> { status: "ok", pod, storage: "local"|"minio", volume: "emptyDir"|"pvc" }
+//   GET    /health            -> { status: "ok", pod, storage: "local"|"minio", volume: "emptyDir"|"pvc", quota: bytes per user }
 //   GET    /files             -> [{ name, size }]        only the signed-in user's files
 //   POST   /upload            -> multipart form, field "file"
 //   GET    /download/<name>   -> the file
@@ -225,7 +225,8 @@ export const api = {
     if (this.mode === 'live') return fetchHealth();
     if (performance.now() < this.demo.downUntil) return null;
     const v = this.demo.volume;
-    return { status: 'ok', pod: this.demo.pod, storage: v === 'minio' ? 'minio' : 'local', volume: v === 'minio' ? null : v };
+    return { status: 'ok', pod: this.demo.pod, storage: v === 'minio' ? 'minio' : 'local', volume: v === 'minio' ? null : v,
+      quota: 5 * 1024 ** 3 };
   },
 
   // Demo only: pretend `kubectl delete pod` happened.

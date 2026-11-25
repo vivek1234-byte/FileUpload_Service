@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
 from functools import wraps
 
@@ -17,6 +18,24 @@ MIN_PASSWORD, MAX_PASSWORD = 6, 200
 MAX_FILENAME = 200
 # Compared against when a name doesn't exist, so a wrong name takes as long as a wrong password.
 _DUMMY_HASH = generate_password_hash("no-such-user-placeholder")
+MB = 1024 * 1024
+
+# One lock per user, so two uploads from the same user can't both squeeze under the quota.
+_user_locks: dict[str, threading.Lock] = {}
+_user_locks_guard = threading.Lock()
+
+
+def _user_lock(user: str) -> threading.Lock:
+    with _user_locks_guard:
+        return _user_locks.setdefault(user, threading.Lock())
+
+
+def quota_bytes() -> int:
+    return current_app.config["USER_QUOTA_MB"] * MB
+
+
+def format_size(n: int) -> str:
+    return f"{n / (1024 * MB):.2f} GB" if n >= 1024 * MB else f"{n / MB:.1f} MB"
 
 
 def error(message: str, status: int):
@@ -75,7 +94,8 @@ def _credentials():
 @bp.get("/health")
 def health():
     cfg = current_app.config
-    return jsonify(status="ok", pod=cfg["POD_NAME"], storage=cfg["STORAGE"], volume=cfg["STORAGE_VOLUME"])
+    return jsonify(status="ok", pod=cfg["POD_NAME"], storage=cfg["STORAGE"], volume=cfg["STORAGE_VOLUME"],
+                   quota=quota_bytes())
 
 
 # ------------------------------------------------------------------ accounts
@@ -137,7 +157,21 @@ def upload():
     name = clean_filename(upload_file.filename)
     if not name:
         return error("That file name is not allowed", 400)
-    size = storage().save(g.user, name, upload_file.stream)
+
+    stream = upload_file.stream
+    stream.seek(0, 2)  # the upload is already spooled, so its exact size is known
+    incoming = stream.tell()
+    stream.seek(0)
+
+    limit = quota_bytes()
+    with _user_lock(g.user):
+        # Replacing a file frees its old size, so it doesn't count twice.
+        used = sum(f["size"] for f in storage().list(g.user) if f["name"] != name)
+        if used + incoming > limit:
+            free = max(limit - used, 0)
+            return error(f"Storage full: you can store {format_size(limit)}, "
+                         f"{format_size(free)} is left and this file is {format_size(incoming)}", 413)
+        size = storage().save(g.user, name, stream)
     return jsonify(uploaded=name, size=size), 201
 
 

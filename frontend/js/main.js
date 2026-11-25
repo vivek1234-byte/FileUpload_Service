@@ -818,6 +818,43 @@ function renderInventory(files) {
   badge.textContent = files.length;
   if (fresh.length) { badge.classList.remove('ping'); void badge.offsetWidth; badge.classList.add('ping'); }
   $('stat-size').textContent = formatBytes(files.reduce((sum, f) => sum + f.size, 0));
+  storedSizes = new Map(files.map((f) => [f.name, f.size]));
+  updateStorage();
+}
+
+// ------------------------------------------------------------------ storage quota (per user)
+let quotaBytes = null; // from /health; null until the server says
+let storedSizes = new Map(); // name -> size of the files in the vault
+
+function storedTotal() {
+  let sum = 0;
+  for (const size of storedSizes.values()) sum += size;
+  return sum;
+}
+
+function updateStorage() {
+  const box = $('storage');
+  box.hidden = !quotaBytes;
+  if (!quotaBytes) return;
+  const used = storedTotal();
+  const pct = Math.min(used / quotaBytes, 1);
+  $('storage-text').textContent = `${formatBytes(used)} / ${formatBytes(quotaBytes)}`;
+  $('storage-fill').style.width = `${(pct * 100).toFixed(1)}%`;
+  box.classList.toggle('warn', pct >= 0.8 && pct < 0.98);
+  box.classList.toggle('full', pct >= 0.98);
+  box.title = `${formatBytes(Math.max(quotaBytes - used, 0))} free`;
+}
+
+// Stops an upload before it starts when it can't fit; the server checks again either way.
+function fitsInQuota(file, queuedBytes = 0) {
+  if (!quotaBytes) return true;
+  const inFlight = uploads.reduce((sum, u) => sum + u.file.size, 0) + queuedBytes;
+  const used = storedTotal() - (storedSizes.get(file.name) || 0) + inFlight;
+  if (used + file.size <= quotaBytes) return true;
+  feed({ icon: '✖', tag: 'STORAGE FULL',
+    name: `${file.name} (${formatBytes(file.size)}) — only ${formatBytes(Math.max(quotaBytes - used, 0))} of ${formatBytes(quotaBytes)} left`, kind: 'bad' });
+  sfx.error();
+  return false;
 }
 
 const tooltip = $('tooltip');
@@ -975,7 +1012,12 @@ function startUpload(file, ndc) {
 
 function launch(files, ndc) {
   if (!started) startGame();
-  files.forEach((file, i) => {
+  let queued = 0;
+  let queuedBytes = 0; // files from this same drop that haven't started yet
+  files.forEach((file) => {
+    if (!fitsInQuota(file, queuedBytes)) return;
+    queuedBytes += file.size;
+    const i = queued++;
     const spread = {
       x: THREE.MathUtils.clamp(ndc.x + (i ? (Math.random() - 0.5) * 0.6 : 0), -0.9, 0.9),
       y: THREE.MathUtils.clamp(ndc.y + (i ? (Math.random() - 0.5) * 0.6 : 0), -0.9, 0.9),
@@ -1459,6 +1501,7 @@ function setServer(h) {
   if (!h) { $('mode').textContent = 'SIGNAL LOST'; $('srv-status').textContent = 'Not responding'; return; }
   $('mode').textContent = api.mode === 'live' ? 'ONLINE' : 'DEMO';
   $('srv-status').textContent = api.mode === 'live' ? 'Connected' : 'Demo — no server connected';
+  if (h.quota !== quotaBytes) { quotaBytes = h.quota || null; updateStorage(); }
   $('pod').textContent = h.pod || '—';
   $('pod').title = h.pod || '';
   const a = h.storage === 'minio' ? ARMOR.minio : ARMOR[h.volume];

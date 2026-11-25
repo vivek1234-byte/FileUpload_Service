@@ -5,7 +5,8 @@ from conftest import register, upload
 # ------------------------------------------------------------------ status + frontend
 def test_health_reports_pod_and_volume(client):
     body = client.get("/health").get_json()
-    assert body == {"status": "ok", "pod": "test-pod", "storage": "local", "volume": "pvc"}
+    assert body == {"status": "ok", "pod": "test-pod", "storage": "local", "volume": "pvc",
+                    "quota": 5120 * 1024 * 1024}
 
 
 def test_serves_frontend(client):
@@ -135,3 +136,31 @@ def test_secret_key_is_kept_on_disk_when_not_configured(tmp_path):
     first = create_app({"DATA_DIR": str(tmp_path), "SECRET_KEY": None})
     second = create_app({"DATA_DIR": str(tmp_path), "SECRET_KEY": None})
     assert first.config["SECRET_KEY"] == second.config["SECRET_KEY"]
+
+
+# ------------------------------------------------------------------ per-user storage quota
+def test_quota_blocks_uploads_past_the_limit(tmp_path):
+    client = create_app({"DATA_DIR": str(tmp_path), "SECRET_KEY": "k", "USER_QUOTA_MB": 2}).test_client()
+    alice = register(client, "alice")
+    chunk = b"0" * (900 * 1024)  # 0.9 MB, under the 200 MB per-file limit
+
+    assert upload(client, alice, "a.bin", chunk).status_code == 201
+    assert upload(client, alice, "b.bin", chunk).status_code == 201
+    full = upload(client, alice, "c.bin", chunk)  # would make 2.7 MB of 2 MB
+    assert full.status_code == 413
+    assert "Storage full" in full.get_json()["error"]
+    assert [f["name"] for f in client.get("/files", headers=alice).get_json()] == ["a.bin", "b.bin"]
+
+    # Replacing a file only counts its new size
+    assert upload(client, alice, "b.bin", chunk).status_code == 201
+    # Deleting frees space again
+    client.delete("/files/a.bin", headers=alice)
+    assert upload(client, alice, "c.bin", chunk).status_code == 201
+
+
+def test_quota_is_per_user(tmp_path):
+    client = create_app({"DATA_DIR": str(tmp_path), "SECRET_KEY": "k", "USER_QUOTA_MB": 1}).test_client()
+    alice, bob = register(client, "alice"), register(client, "bob")
+    chunk = b"0" * (900 * 1024)
+    assert upload(client, alice, "a.bin", chunk).status_code == 201
+    assert upload(client, bob, "b.bin", chunk).status_code == 201  # Alice's files don't use Bob's space

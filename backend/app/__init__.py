@@ -6,6 +6,7 @@ Settings come from environment variables (see README.md):
   STORAGE_VOLUME    emptyDir | pvc - shown in the game so players see what kind of disk this is
   SECRET_KEY        signs login tokens; set it from a Kubernetes Secret in production
   MAX_UPLOAD_MB     largest accepted upload            (default 200)
+  USER_QUOTA_MB     most a single user may store       (default 5120 = 5 GB)
   TOKEN_MAX_AGE     seconds a login stays valid        (default 7 days)
   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET, MINIO_SECURE
   FRONTEND_DIR      folder with the 3D frontend        (default ../frontend)
@@ -33,6 +34,7 @@ def load_config(overrides: dict | None = None) -> dict:
         "STORAGE_VOLUME": env.get("STORAGE_VOLUME") or None,
         "SECRET_KEY": env.get("SECRET_KEY") or None,
         "MAX_UPLOAD_MB": int(env.get("MAX_UPLOAD_MB", "200")),
+        "USER_QUOTA_MB": int(env.get("USER_QUOTA_MB", "5120")),
         "TOKEN_MAX_AGE": int(env.get("TOKEN_MAX_AGE", str(7 * 24 * 3600))),
         "MINIO_ENDPOINT": env.get("MINIO_ENDPOINT", "minio:9000"),
         "MINIO_ACCESS_KEY": env.get("MINIO_ACCESS_KEY", ""),

@@ -133,6 +133,7 @@ tunnel (for example ngrok) or press **Build Now** after each push.
 | `STORAGE_VOLUME` | — | `emptyDir` or `pvc`; only reported to the game so it can show the armour badge |
 | `SECRET_KEY` | generated | Signs login tokens. **Set it from a Kubernetes Secret**; if unset with local storage a key is saved in `DATA_DIR` |
 | `MAX_UPLOAD_MB` | `200` | Largest upload |
+| `USER_QUOTA_MB` | `5120` | Most one user can store in total (5 GB). Uploads past it get `413 Storage full` |
 | `TOKEN_MAX_AGE` | `604800` | Seconds a login stays valid (7 days) |
 | `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` / `MINIO_BUCKET` / `MINIO_SECURE` | `minio:9000` / — / — / `uploads` / `false` | MinIO connection when `STORAGE=minio` |
 | `POD_NAME` | hostname | Shown in the game; the pod name in Kubernetes |
@@ -143,12 +144,12 @@ All file routes need `Authorization: Bearer <token>` and only ever touch the sig
 
 | Method | Path | Body / result |
 |---|---|---|
-| GET | `/health` | `{status, pod, storage, volume}` |
+| GET | `/health` | `{status, pod, storage, volume, quota}` (quota = bytes each user may store) |
 | POST | `/auth/register` | `{username, password}` → `201 {username, token}`, `409` if the name is taken |
 | POST | `/auth/login` | `{username, password}` → `{username, token}`, `401` if wrong |
 | GET | `/auth/me` | `{username}` |
 | GET | `/files` | `[{name, size}]` |
-| POST | `/upload` | multipart field `file` → `201 {uploaded, size}`, `413` if too big |
+| POST | `/upload` | multipart field `file` → `201 {uploaded, size}`, `413` if the file is too big or the user's 5 GB is full |
 | GET | `/download/<name>` | the file, as an attachment |
 | DELETE | `/files/<name>` | `204`, or `404` |
 

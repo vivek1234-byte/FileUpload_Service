@@ -196,6 +196,14 @@ body.dragging .action { opacity: 0; }
 .inv-head h2 { flex: 1; }
 body.playing .inventory { opacity: 0; transform: translateX(30px); pointer-events: none; transition-delay: 0s; }
 body.playing.inv-open .inventory { opacity: 1; transform: none; pointer-events: auto; }
+.storage { margin: 0 0 12px; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.storage-row { display: flex; justify-content: space-between; margin-bottom: 5px; letter-spacing: 0.12em; }
+.storage-row b { color: var(--text); font-weight: 600; letter-spacing: 0.04em; }
+.storage-bar { height: 6px; background: rgba(255,255,255,0.08); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+.storage-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--magenta)); transition: width 0.4s ease; }
+.storage.warn .storage-row b { color: #ffc24d; }
+.storage.full .storage-row b { color: #ff4d6d; }
+.storage.full .storage-bar i { background: #ff4d6d; }
 .inv-empty { margin: 4px 0 10px; font-size: 14px; line-height: 1.5; color: var(--dim); text-align: center; }
 .inv-head h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: 0.32em; color: var(--cyan); }
 .inv-head span { font-family: var(--mono); font-size: 12px; color: var(--dim); }

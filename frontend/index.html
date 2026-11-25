@@ -56,6 +56,10 @@
       <h2>INVENTORY</h2><span id="inv-count">0 ITEMS</span>
       <button id="inv-close" class="x" type="button" aria-label="Close inventory">✕</button>
     </div>
+    <div class="storage" id="storage" hidden>
+      <div class="storage-row"><span>STORAGE</span><b id="storage-text">0 B / 5 GB</b></div>
+      <div class="storage-bar"><i id="storage-fill"></i></div>
+    </div>
     <ul id="uploads" class="uploads"></ul>
     <div id="slots" class="slots"></div>
     <p id="inv-empty" class="inv-empty">Your vault is empty.<br>Drag a file onto the screen to upload it.</p>
@@ -101,7 +105,7 @@
       <section class="tab-panel" data-panel="help" role="tabpanel">
         <h3>FILES</h3>
         <ul class="howto">
-          <li><span class="key">DRAG</span><div><b>Upload</b><p>Drop files anywhere on the screen, or press <kbd>U</kbd> to choose them.</p></div></li>
+          <li><span class="key">DRAG</span><div><b>Upload</b><p>Drop files anywhere on the screen, or press <kbd>U</kbd> to choose them. Each player can store up to 5 GB; the bar in the inventory shows how much is used.</p></div></li>
           <li><span class="key">CLICK</span><div><b>Download</b><p>Click a floating card or an inventory slot, then confirm in the popup. Nothing downloads until you press <kbd>Y</kbd> or DOWNLOAD.</p></div></li>
           <li><span class="key">I</span><div><b>Inventory</b><p>Show or hide the list of your stored files.</p></div></li>
           <li><span class="key danger">DRAG<br>→ CORE</span><div><b>Delete</b><p>Drag a card into the glowing core and confirm. Or select an inventory slot and press <kbd>DEL</kbd>.</p></div></li>
