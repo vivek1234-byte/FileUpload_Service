@@ -100,13 +100,13 @@ The [Jenkinsfile](Jenkinsfile) has six stages: **Checkout → Test → Build ima
 
 1. The Jenkins machine needs Docker and kubectl, and the plugins *Pipeline*, *Git*,
    *GitHub* and *Credentials Binding* (all in Jenkins' suggested plugins).
-2. In the Jenkinsfile, set `IMAGE` to your Docker Hub repository.
+2. In the Jenkinsfile, `IMAGE` is the Docker Hub repository (`vivekprasad7/vortex-file-upload`).
 3. Add the credentials (Manage Jenkins → Credentials), with exactly these IDs:
 
    | ID | Kind | Value |
    |---|---|---|
-   | `dockerhub` | Username with password | Docker Hub user and access token |
-   | `kubeconfig` | Secret file | kubeconfig for your cluster |
+   | `docker` | Username with password | Docker Hub user and access token |
+   | `jenkins` | Secret file | kubeconfig for your cluster |
    | `vortex-secret-key` | Secret text | a long random string (`openssl rand -hex 32`) |
    | `minio-root` | Username with password | MinIO admin user and a password of 8+ characters |
 

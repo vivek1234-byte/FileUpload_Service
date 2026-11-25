@@ -4,8 +4,8 @@
 //
 // The Jenkins agent needs Docker and kubectl. Add these in
 // Manage Jenkins -> Credentials (the IDs must match):
-//   dockerhub          Username with password   Docker Hub user + access token
-//   kubeconfig         Secret file              kubeconfig of your cluster
+//   docker             Username with password   Docker Hub user + access token
+//   jenkins            Secret file              kubeconfig of your cluster
 //   vortex-secret-key  Secret text              any long random string (signs logins)
 //   minio-root         Username with password   MinIO admin user + password (8+ characters)
 
@@ -22,7 +22,7 @@ pipeline {
     }
 
     environment {
-        IMAGE = 'your-dockerhub-user/vortex-file-upload'   // <- change to your Docker Hub repo
+        IMAGE = 'vivekprasad7/vortex-file-upload'   // your Docker Hub repository
         TAG   = "${env.BUILD_NUMBER}"
     }
 
@@ -53,7 +53,7 @@ pipeline {
 
         stage('Push image') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub',
+                withCredentials([usernamePassword(credentialsId: 'docker',
                                                   usernameVariable: 'DOCKER_USER',
                                                   passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
@@ -68,7 +68,7 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG'),
+                withCredentials([file(credentialsId: 'jenkins', variable: 'KUBECONFIG'),
                                  string(credentialsId: 'vortex-secret-key', variable: 'SECRET_KEY'),
                                  usernamePassword(credentialsId: 'minio-root',
                                                   usernameVariable: 'MINIO_USER',
@@ -96,7 +96,7 @@ pipeline {
 
         stage('Verify') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: 'jenkins', variable: 'KUBECONFIG')]) {
                     sh '''
                         kubectl -n vortex rollout status deployment/vortex --timeout=180s
                         kubectl -n vortex get pods,svc,pvc
