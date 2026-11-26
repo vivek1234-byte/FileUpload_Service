@@ -13,7 +13,7 @@ def test_serves_frontend(client):
     res = client.get("/")
     assert res.status_code == 200
     assert b"VORTEX" in res.data
-    assert client.get("/js/main.js").status_code == 200
+    assert client.get("/app.js").status_code == 200
     assert res.headers["X-Content-Type-Options"] == "nosniff"
 
 

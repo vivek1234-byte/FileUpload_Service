@@ -1,4 +1,4 @@
-# VORTEX File Upload Service: Flask API + 3D frontend in one image.
+# VORTEX File Upload Service: Flask API + web page in one image.
 
 # ---- Stage "test": only built when asked for (docker build --target test .), the build
 # fails if a test fails. Jenkins uses this, so its server needs nothing but Docker.

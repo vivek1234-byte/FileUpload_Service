@@ -1,10 +1,10 @@
 # VORTEX — File Upload Service
 
-A file upload/download service with a 3D game-style frontend, built for practising
+A file upload/download service with a simple web page, built for practising
 Docker, Kubernetes storage (emptyDir vs PersistentVolumeClaim vs MinIO), Jenkins and GitHub.
 
 ```
-frontend/   3D page (Three.js) — served by the backend
+frontend/   web page: sign in, upload, list, download, delete (index.html, style.css, app.js)
 backend/    Flask API: accounts, per-user files, health
 Dockerfile  one image with both (plus a "test" stage that runs the tests)
 k8s/        Kubernetes manifests: emptydir/, pvc/, minio/
@@ -30,11 +30,11 @@ git push ──► GitHub ──webhook──► Jenkins
 cd backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
-DATA_DIR=./data .venv/bin/gunicorn --bind 0.0.0.0:8080 --threads 8 wsgi:app
+DATA_DIR=./data .venv/bin/gunicorn --bind 0.0.0.0:8000 --threads 8 wsgi:app
 ```
 
-Open http://localhost:8080. Without a backend (opening `frontend/` on its own) the page runs in
-demo mode and keeps everything in the browser.
+Open http://localhost:8000 (port 8080 is taken by Jenkins on this machine). The page needs the backend:
+it is served by it and talks to its API.
 
 ## Run the tests
 
@@ -83,11 +83,11 @@ minikube service vortex -n vortex --url  # the address to open
 The experiment from the slide:
 
 ```bash
-kubectl -n vortex delete pod -l app=vortex   # the game shows the pod wipe
+kubectl -n vortex delete pod -l app=vortex   # the page shows "The server restarted"
 kubectl -n vortex get pods                   # a new pod with a new name
 ```
 
-On `emptydir` the game then says "ACCOUNT LOST"; on `pvc` and `minio` your files are still there.
+On `emptydir` you are signed out ("Account not found on this server"); on `pvc` and `minio` your files are still there.
 MinIO's web console: `kubectl -n vortex port-forward svc/minio 9001`, then http://localhost:9001.
 
 Switching mode leaves the old mode's things running (for example the MinIO pod or a PVC).
@@ -130,13 +130,13 @@ tunnel (for example ngrok) or press **Build Now** after each push.
 |---|---|---|
 | `STORAGE` | `local` | `local` (folder at `DATA_DIR`) or `minio` |
 | `DATA_DIR` | `/data` | Where local storage keeps files and accounts — mount the emptyDir/PVC here |
-| `STORAGE_VOLUME` | — | `emptyDir` or `pvc`; only reported to the game so it can show the armour badge |
+| `STORAGE_VOLUME` | — | `emptyDir` or `pvc`; only shown in the page header |
 | `SECRET_KEY` | generated | Signs login tokens. **Set it from a Kubernetes Secret**; if unset with local storage a key is saved in `DATA_DIR` |
 | `MAX_UPLOAD_MB` | `200` | Largest upload |
 | `USER_QUOTA_MB` | `5120` | Most one user can store in total (5 GB). Uploads past it get `413 Storage full` |
 | `TOKEN_MAX_AGE` | `604800` | Seconds a login stays valid (7 days) |
 | `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` / `MINIO_BUCKET` / `MINIO_SECURE` | `minio:9000` / — / — / `uploads` / `false` | MinIO connection when `STORAGE=minio` |
-| `POD_NAME` | hostname | Shown in the game; the pod name in Kubernetes |
+| `POD_NAME` | hostname | Shown in the page header; the pod name in Kubernetes |
 
 ## API
 
@@ -161,7 +161,7 @@ Errors are JSON: `{"error": "message"}`.
 - MinIO: objects `files/<user>/<file>` and `_system/users.json` in the bucket.
 
 Accounts are stored next to the files on purpose: on an **emptyDir** volume, deleting the pod
-loses the accounts too, and the game shows "ACCOUNT LOST". On a **PVC** or **MinIO** they survive.
+loses the accounts too, and users are signed out with "Account not found on this server". On a **PVC** or **MinIO** they survive.
 
 ## Notes
 

@@ -3,271 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VORTEX // File Upload Service</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,1 30,9 30,23 16,31 2,23 2,9' fill='%2338e8ff'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <title>VORTEX · File Upload</title>
   <link rel="stylesheet" href="style.css">
-
-  <!-- Backend address. Leave empty when the page is served by the same host as the API. -->
-  <script>window.API_BASE = '';</script>
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
-  <canvas id="scene" aria-hidden="true"></canvas>
-  <div class="scanlines" aria-hidden="true"></div>
-  <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-  <div id="reticle" class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
-  <div id="flash" class="flash" aria-hidden="true"></div>
-
-  <!-- ===================== HUD ===================== -->
-  <header class="hud player" aria-label="Player">
-    <div class="hex"><span>LV</span><b id="lvl">1</b></div>
-    <div class="who">
-      <div class="callsign"><span id="pname">PLAYER</span> <em id="rank">ROOKIE</em></div>
-      <div class="xpbar"><i id="xpfill"></i><s id="xpghost"></s></div>
-      <div class="xptext" id="xptext">0 / 100 XP</div>
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true">▲</span> VORTEX <span class="muted">File Upload</span></div>
+    <div id="server" class="server" title="The pod and storage that answered">Connecting…</div>
+    <div id="user-box" class="user" hidden>
+      <span id="user-name"></span>
+      <button type="button" id="logout" class="link">Sign out</button>
     </div>
   </header>
 
-  <button class="hud server" id="server" type="button" title="Server details"><i></i><span id="mode">CONNECTING</span></button>
+  <main>
+    <!-- Signed out -->
+    <section id="auth" class="card auth" hidden>
+      <h1>Your files, anywhere</h1>
+      <p class="muted">Sign in to see your files, or create a free account.</p>
+      <div class="tabs" role="tablist">
+        <button type="button" id="tab-login" class="tab active" role="tab" aria-selected="true">Sign in</button>
+        <button type="button" id="tab-register" class="tab" role="tab" aria-selected="false">Create account</button>
+      </div>
+      <!-- No name attributes and a disabled button until app.js is ready, so nothing is ever sent in a URL. -->
+      <form id="auth-form" onsubmit="return false" novalidate>
+        <label for="username">Username</label>
+        <input id="username" autocomplete="username" maxlength="20" spellcheck="false" autocapitalize="off">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" maxlength="200">
+        <p id="auth-error" class="error" role="alert" hidden></p>
+        <button type="submit" id="auth-submit" class="primary wide" disabled>Sign in</button>
+        <p id="auth-hint" class="hint"></p>
+      </form>
+    </section>
 
-  <nav class="hud topbar" aria-label="Panels">
-    <button id="inv-toggle" class="tb-btn" type="button" aria-expanded="false" aria-controls="inventory">
-      <kbd>I</kbd><span>INVENTORY</span><b id="inv-badge" class="badge">0</b>
-      <i class="tb-progress"><i id="inv-progress"></i></i>
-    </button>
-    <button id="menu-toggle" class="tb-btn" type="button" aria-expanded="false" aria-controls="menu">
-      <kbd>H</kbd><span>MENU</span>
-    </button>
-  </nav>
-
-  <aside class="hud inventory" id="inventory" aria-label="Inventory">
-    <div class="inv-head">
-      <h2>INVENTORY</h2><span id="inv-count">0 ITEMS</span>
-      <button id="inv-close" class="x" type="button" aria-label="Close inventory">✕</button>
-    </div>
-    <div class="storage" id="storage" hidden>
-      <div class="storage-row"><span>STORAGE</span><b id="storage-text">0 B / 5 GB</b></div>
-      <div class="storage-bar"><i id="storage-fill"></i></div>
-    </div>
-    <ul id="uploads" class="uploads"></ul>
-    <div id="slots" class="slots"></div>
-    <p id="inv-empty" class="inv-empty">Your vault is empty.<br>Drag a file onto the screen to upload it.</p>
-    <div class="legend" id="legend"></div>
-  </aside>
-
-  <ol class="hud feed" id="feed" aria-live="polite"></ol>
-
-  <div class="hud combo" id="combo" aria-live="polite">
-    <div class="combo-n">x<b id="combo-n">2</b></div>
-    <div class="combo-label">COMBO</div>
-    <div class="combo-mult" id="combo-mult">XP ×1.5</div>
-    <div class="combo-timer"><i id="combo-timer"></i></div>
-  </div>
-
-  <section class="hud stats" aria-label="Session stats">
-    <div><span>UPLOADS</span><b id="stat-uploads">0</b></div>
-    <div><span>LOOT VALUE</span><b id="stat-size">0 B</b></div>
-    <div><span>BEST COMBO</span><b id="stat-combo">x0</b></div>
-  </section>
-
-  <div class="hud action">
-    <button id="browse" type="button"><kbd>U</kbd><span>UPLOAD</span></button>
-    <div class="hint" id="hint">OR DRAG FILES INTO THE VORTEX</div>
-    <input id="picker" type="file" multiple hidden>
-  </div>
-
-  <button class="hud mute" id="mute" type="button"><kbd>M</kbd><span id="mute-label">SOUND ON</span></button>
-
-  <!-- ===================== menu ===================== -->
-  <aside id="menu" class="menu" aria-label="Menu" aria-hidden="true">
-    <div class="menu-head">
-      <h2>MENU</h2>
-      <button id="menu-close" class="x" type="button" aria-label="Close menu">✕</button>
-    </div>
-    <div class="tabs" role="tablist">
-      <button type="button" role="tab" data-tab="help" aria-selected="true">HOW TO PLAY</button>
-      <button type="button" role="tab" data-tab="server" aria-selected="false">SERVER</button>
-      <button type="button" role="tab" data-tab="profile" aria-selected="false">PROFILE</button>
-    </div>
-
-    <div class="menu-body">
-      <section class="tab-panel" data-panel="help" role="tabpanel">
-        <h3>FILES</h3>
-        <ul class="howto">
-          <li><span class="key">DRAG</span><div><b>Upload</b><p>Drop files anywhere on the screen, or press <kbd>U</kbd> to choose them. Each player can store up to 5 GB; the bar in the inventory shows how much is used.</p></div></li>
-          <li><span class="key">CLICK</span><div><b>Download</b><p>Click a floating card or an inventory slot, then confirm in the popup. Nothing downloads until you press <kbd>Y</kbd> or DOWNLOAD.</p></div></li>
-          <li><span class="key">I</span><div><b>Inventory</b><p>Show or hide the list of your stored files.</p></div></li>
-          <li><span class="key danger">DRAG<br>→ CORE</span><div><b>Delete</b><p>Drag a card into the glowing core and confirm. Or select an inventory slot and press <kbd>DEL</kbd>.</p></div></li>
-        </ul>
-
-        <h3>EARN XP</h3>
-        <ul class="howto">
-          <li><span class="key gold">SIZE</span><div><b>Loot rarity</b><p>Bigger files are rarer and worth more XP.</p><div class="rarity-strip" id="rarity-strip"></div></div></li>
-          <li><span class="key gold">x2</span><div><b>Combos</b><p>Finish another upload within 8 seconds to multiply XP, up to ×4.</p></div></li>
-          <li><span class="key gold">◆</span><div><b>Data packets</b><p>Gold packets fly out of the core while files upload. Click them for bonus XP.</p></div></li>
-          <li><span class="key gold">O</span><div><b>Loot crates</b><p>Every 5 uploads drops a crate. Open it to win a new core skin or XP.</p></div></li>
-        </ul>
-
-        <h3>VIEW &amp; SOUND</h3>
-        <ul class="howto compact">
-          <li><span class="key">MOUSE</span><div><p>Drag to turn the camera, scroll to zoom.</p></div></li>
-          <li><span class="key">C</span><div><p>Switch core skin.</p></div></li>
-          <li><span class="key">M</span><div><p>Sound on / off.</p></div></li>
-          <li><span class="key">H</span><div><p>Open or close this menu. <kbd>ESC</kbd> also closes it.</p></div></li>
-        </ul>
-      </section>
-
-      <section class="tab-panel" data-panel="server" role="tabpanel" hidden>
-        <div class="kv"><span>STATUS</span><b id="srv-status">—</b></div>
-        <div class="kv"><span>POD</span><b id="pod">—</b></div>
-        <div class="kv"><span>STORAGE</span><b id="armor" class="armor">—</b></div>
-        <p class="note" id="armor-note"></p>
-
-        <div id="sim" class="sim-box" hidden>
-          <h3>TRY THE KUBERNETES DEMO</h3>
-          <p class="note">No real server is connected, so these buttons pretend to be one. Switch the volume, then delete the pod and watch what happens to your files.</p>
-          <button id="sim-volume" class="sim-btn" type="button">
-            <kbd>V</kbd><div><b id="sim-volume-label">VOLUME: EMPTYDIR</b><small>Switch storage: emptyDir → PVC → MinIO</small></div>
-          </button>
-          <button id="sim-wipe" class="sim-btn danger" type="button">
-            <kbd>W</kbd><div><b>DELETE THE POD</b><small>Like <code>kubectl delete pod</code>. emptyDir loses files, PVC and MinIO keep them.</small></div>
-          </button>
+    <!-- Signed in -->
+    <section id="app" hidden>
+      <div class="card">
+        <div class="row">
+          <h2>Storage</h2>
+          <span id="usage-text" class="muted"></span>
         </div>
-      </section>
+        <div class="meter" aria-hidden="true"><i id="usage-bar"></i></div>
+      </div>
 
-      <section class="tab-panel" data-panel="profile" role="tabpanel" hidden>
-        <div class="profile-head">
-          <div class="hex small"><span>LV</span><b id="p-level">1</b></div>
-          <div class="p-who"><b id="p-name">PLAYER</b><span id="p-rank">ROOKIE</span></div>
-          <button id="logout" class="logout" type="button">LOG OUT</button>
+      <div id="drop" class="card drop">
+        <p><b>Drag files here</b> or</p>
+        <label class="button primary">
+          Choose files
+          <input type="file" id="file-input" multiple hidden>
+        </label>
+        <p id="limits" class="muted small">Up to 200 MB per file</p>
+        <ul id="uploads" class="uploads"></ul>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <h2>Your files</h2>
+          <span id="count" class="muted"></span>
         </div>
-        <div class="pstats" id="p-stats"></div>
-        <h3>CORE SKINS <small>click to equip</small></h3>
-        <div class="skins" id="skins"></div>
-        <h3>ACHIEVEMENTS <small id="p-ach-count"></small></h3>
-        <ul class="achievements" id="achievements"></ul>
-      </section>
-    </div>
-  </aside>
-
-  <!-- ===================== overlays ===================== -->
-  <div id="tooltip" class="tooltip" role="status"></div>
-  <div id="pops" class="pops" aria-hidden="true"></div>
-
-  <button id="crate-label" class="crate-label" type="button" hidden>
-    <b>LOOT CRATE <span id="crate-count"></span></b><small><kbd>O</kbd> OR CLICK TO OPEN</small>
-  </button>
-  <div id="grab-hint" class="grab-hint" aria-live="polite">DRAG ONTO THE CORE TO DESTROY</div>
-
-  <div id="banner" class="banner" aria-live="assertive">
-    <div class="banner-title" id="banner-title" data-text="LEVEL UP">LEVEL UP</div>
-    <div class="banner-sub" id="banner-sub"></div>
-  </div>
-
-  <div id="achv" class="achv" aria-live="polite">
-    <div class="achv-icon">★</div>
-    <div>
-      <div class="achv-kicker">ACHIEVEMENT UNLOCKED</div>
-      <div class="achv-title" id="achv-title"></div>
-      <div class="achv-desc" id="achv-desc"></div>
-    </div>
-    <div class="achv-xp">+50 XP</div>
-  </div>
-
-  <div id="reward" class="reward" aria-live="assertive">
-    <div class="reward-kicker">CRATE OPENED</div>
-    <div class="reward-orb" id="reward-orb"></div>
-    <div class="reward-rarity" id="reward-rarity"></div>
-    <div class="reward-name" id="reward-name"></div>
-    <div class="reward-desc" id="reward-desc"></div>
-  </div>
-
-  <div id="confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
-    <div class="modal-box">
-      <div class="modal-kicker">⚠ CANNOT BE UNDONE</div>
-      <h2 id="confirm-title">DESTROY ITEM?</h2>
-      <div class="modal-item" id="confirm-item"></div>
-      <p>This permanently deletes the file from the server.</p>
-      <div class="modal-actions">
-        <button id="confirm-no" type="button"><kbd>N</kbd>CANCEL</button>
-        <button id="confirm-yes" class="danger" type="button"><kbd>Y</kbd>DESTROY</button>
+        <p id="empty" class="muted">No files yet. Upload one above.</p>
+        <table id="files" hidden>
+          <thead><tr><th>Name</th><th class="num">Size</th><th class="actions-col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 
-  <div id="dl-confirm" class="modal dl" role="dialog" aria-modal="true" aria-labelledby="dl-title" hidden>
-    <div class="modal-box">
-      <div class="modal-kicker">▼ RETRIEVE ITEM</div>
-      <h2 id="dl-title">DOWNLOAD FILE?</h2>
-      <div class="modal-item" id="dl-item"></div>
-      <p>The file will be saved to your computer.</p>
-      <div class="modal-actions">
-        <button id="dl-no" type="button"><kbd>N</kbd>CANCEL</button>
-        <button id="dl-yes" class="go" type="button"><kbd>Y</kbd>DOWNLOAD</button>
+  <dialog id="confirm">
+    <form method="dialog">
+      <h3 id="confirm-title"></h3>
+      <p id="confirm-text"></p>
+      <div class="dialog-actions">
+        <button value="cancel" id="confirm-cancel" class="secondary">Cancel</button>
+        <button value="ok" id="confirm-ok" class="primary">OK</button>
       </div>
-    </div>
-  </div>
-
-  <div id="release" class="release" aria-hidden="true"><span>RELEASE TO TRANSMIT</span></div>
-
-  <!-- ===================== login ===================== -->
-  <div id="login" class="login">
-    <form id="login-form" class="login-box" novalidate onsubmit="event.preventDefault()">
-      <div class="start-kicker">FILE UPLOAD SERVICE</div>
-      <h1 class="start-logo login-logo" data-text="VORTEX">VORTEX</h1>
-      <div class="login-tabs" role="tablist">
-        <button type="button" role="tab" data-auth="login" aria-selected="true">SIGN IN</button>
-        <button type="button" role="tab" data-auth="register" aria-selected="false">CREATE ACCOUNT</button>
-      </div>
-      <label class="field">
-        <span>PLAYER NAME</span>
-        <input id="login-name" autocomplete="username" maxlength="20" spellcheck="false" required>
-      </label>
-      <label class="field">
-        <span>PASSWORD</span>
-        <input id="login-pass" type="password" autocomplete="current-password" required>
-      </label>
-      <label class="field" id="confirm-field" hidden>
-        <span>CONFIRM PASSWORD</span>
-        <input id="login-pass2" type="password" autocomplete="new-password">
-      </label>
-      <p class="login-error" id="login-error" role="alert"></p>
-      <button class="login-submit" id="login-submit" type="submit" disabled>SIGN IN</button>
-      <p class="login-note" id="login-note"></p>
     </form>
-  </div>
+  </dialog>
 
-  <!-- ===================== start screen ===================== -->
-  <div id="start" class="start">
-    <div class="start-inner">
-      <div class="start-kicker">FILE UPLOAD SERVICE</div>
-      <h1 class="start-logo" data-text="VORTEX">VORTEX</h1>
-      <div class="start-continue" id="continue"></div>
-      <button class="start-press" id="press" type="button">PRESS ANY KEY TO START</button>
-      <div class="start-hints">
-        <span><kbd>DRAG</kbd> upload</span>
-        <span><kbd>I</kbd> inventory</span>
-        <span><kbd>H</kbd> menu &amp; controls</span>
-      </div>
-    </div>
-  </div>
-
-  <div id="boot" class="boot">
-    <div class="boot-label">LOADING ASSETS</div>
-    <div class="boot-bar"><i></i></div>
-  </div>
-
-  <script type="module" src="js/main.js"></script>
+  <div id="toast" class="toast" role="status" hidden></div>
 </body>
 </html>

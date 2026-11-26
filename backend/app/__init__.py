@@ -9,7 +9,7 @@ Settings come from environment variables (see README.md):
   USER_QUOTA_MB     most a single user may store       (default 5120 = 5 GB)
   TOKEN_MAX_AGE     seconds a login stays valid        (default 7 days)
   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET, MINIO_SECURE
-  FRONTEND_DIR      folder with the 3D frontend        (default ../frontend)
+  FRONTEND_DIR      folder with the web page           (default ../frontend)
 """
 from __future__ import annotations
 
