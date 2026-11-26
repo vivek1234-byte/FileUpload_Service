@@ -42,7 +42,7 @@ class FakeMinio:
             raise self._missing(key)
         return FakeResponse(self.objects[key])
 
-    def list_objects(self, bucket, prefix=""):
+    def list_objects(self, bucket, prefix="", **_kw):
         return [SimpleNamespace(object_name=k, size=len(v)) for k, v in self.objects.items() if k.startswith(prefix)]
 
     def remove_object(self, bucket, key):
@@ -73,3 +73,13 @@ def test_minio_accounts_live_in_the_bucket():
     assert store.read_users() == {}
     store.update_users(lambda users: users.update(alice={"display": "Alice"}))
     assert MinioStorage(fake, "uploads").read_users() == {"alice": {"display": "Alice"}}
+
+
+def test_minio_delete_all_only_touches_one_user():
+    store = MinioStorage(FakeMinio(), "uploads")
+    store.save("alice", "a.txt", io.BytesIO(b"1"))
+    store.save("alice", "b.txt", io.BytesIO(b"2"))
+    store.save("bob", "c.txt", io.BytesIO(b"3"))
+    assert store.delete_all("alice") == 2
+    assert store.list("alice") == []
+    assert store.list("bob") == [{"name": "c.txt", "size": 1}]

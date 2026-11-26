@@ -260,6 +260,47 @@ async function askDelete(f) {
   }
 }
 
+// ------------------------------------------------------------------ delete account
+const deleteDialog = $('delete-dialog');
+
+$('delete-account').addEventListener('click', () => {
+  const n = files.length;
+  $('delete-summary').textContent = n ? `your ${n} file${n === 1 ? '' : 's'} (${formatBytes(usedBytes())})` : 'all your files';
+  $('delete-password').value = '';
+  $('delete-error').hidden = true;
+  deleteDialog.showModal();
+  $('delete-cancel').focus(); // the safe choice is selected by default
+});
+$('delete-cancel').addEventListener('click', () => deleteDialog.close());
+deleteDialog.addEventListener('click', (e) => { if (e.target === deleteDialog) deleteDialog.close(); });
+
+$('delete-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = $('delete-password').value;
+  const showError = (message) => { $('delete-error').textContent = message; $('delete-error').hidden = false; };
+  if (!password) return showError('Enter your password.');
+
+  const button = $('delete-confirm');
+  button.disabled = true;
+  try {
+    const res = await api('/auth/me', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) return showError(await errorText(res, 'Could not delete the account'));
+    deleteDialog.close();
+    signOut();
+    toast('Your account and all your files were deleted.');
+  } catch (err) {
+    if (err.message !== 'signed out') showError('The server is not reachable. Try again in a moment.');
+    else deleteDialog.close();
+  } finally {
+    $('delete-password').value = '';
+    button.disabled = false;
+  }
+});
+
 // ------------------------------------------------------------------ upload
 function fits(file) {
   if (!quota) return true;

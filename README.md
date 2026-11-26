@@ -148,6 +148,7 @@ All file routes need `Authorization: Bearer <token>` and only ever touch the sig
 | POST | `/auth/register` | `{username, password}` → `201 {username, token}`, `409` if the name is taken |
 | POST | `/auth/login` | `{username, password}` → `{username, token}`, `401` if wrong |
 | GET | `/auth/me` | `{username}` |
+| DELETE | `/auth/me` | `{password}` → deletes all your files and your account; `403` if the password is wrong |
 | GET | `/files` | `[{name, size}]` |
 | POST | `/upload` | multipart field `file` → `201 {uploaded, size}`, `413` if the file is too big or the user's 5 GB is full |
 | GET | `/download/<name>` | the file, as an attachment |

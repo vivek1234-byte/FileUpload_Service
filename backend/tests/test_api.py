@@ -164,3 +164,42 @@ def test_quota_is_per_user(tmp_path):
     chunk = b"0" * (900 * 1024)
     assert upload(client, alice, "a.bin", chunk).status_code == 201
     assert upload(client, bob, "b.bin", chunk).status_code == 201  # Alice's files don't use Bob's space
+
+
+# ------------------------------------------------------------------ delete account
+def test_delete_account_removes_files_and_account(app, client, tmp_path):
+    alice = register(client, "alice")
+    bob = register(client, "bob")
+    upload(client, alice, "a.txt", b"one")
+    upload(client, alice, "b.txt", b"two")
+    upload(client, bob, "keep.txt", b"bob's")
+
+    res = client.delete("/auth/me", headers=alice, json={"password": "secret123"})
+    assert res.status_code == 200
+    assert res.get_json() == {"deleted": "alice", "files": 2}
+
+    assert client.get("/files", headers=alice).status_code == 401  # session ends
+    assert client.post("/auth/login", json={"username": "alice", "password": "secret123"}).status_code == 401
+    assert not (tmp_path / "data" / "files" / "alice").exists()
+    assert "alice" not in app.extensions["vortex_storage"].read_users()
+    assert client.get("/files", headers=bob).get_json() == [{"name": "keep.txt", "size": 5}]  # others untouched
+
+
+def test_delete_account_needs_the_right_password(client):
+    alice = register(client, "alice")
+    upload(client, alice, "a.txt", b"one")
+    for body in ({"password": "wrong-one"}, {}, None):
+        res = client.delete("/auth/me", headers=alice, json=body)
+        assert res.status_code == 403
+    assert client.get("/files", headers=alice).get_json() == [{"name": "a.txt", "size": 3}]
+
+
+def test_old_token_does_not_open_a_new_account_with_the_same_name(client, app):
+    old = register(client, "alice")
+    client.delete("/auth/me", headers=old, json={"password": "secret123"})
+    # Someone else takes the name. Make the creation time differ, as it would in real life.
+    register(client, "alice", "another-pass")
+    app.extensions["vortex_storage"].update_users(lambda u: u["alice"].update(created=u["alice"]["created"] + 1))
+    fresh = client.post("/auth/login", json={"username": "alice", "password": "another-pass"}).get_json()["token"]
+    assert client.get("/files", headers=old).status_code == 401
+    assert client.get("/files", headers={"Authorization": f"Bearer {fresh}"}).status_code == 200

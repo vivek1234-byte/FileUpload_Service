@@ -50,8 +50,10 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="vortex-auth")
 
 
-def _token_for(key: str) -> str:
-    return _serializer().dumps({"u": key})
+def _token_for(key: str, created: int) -> str:
+    # "c" ties the token to this exact account: if the account is deleted and someone
+    # registers the same name again, old tokens don't open the new account.
+    return _serializer().dumps({"u": key, "c": created})
 
 
 def clean_filename(name: str | None) -> str | None:
@@ -73,8 +75,9 @@ def login_required(view):
             return error("Session expired, please sign in again", 401)
         key = data.get("u") if isinstance(data, dict) else None
         account = storage().read_users().get(key) if key else None
-        if not account:
-            # e.g. the accounts lived on an emptyDir volume that was wiped with the pod
+        if not account or data.get("c") != account.get("created"):
+            # e.g. the accounts lived on an emptyDir volume that was wiped with the pod,
+            # or the account was deleted (and maybe registered again by someone else)
             return error("Account not found on this server", 401)
         g.user = key
         g.display = account["display"]
@@ -103,7 +106,7 @@ def health():
 def register():
     username, password = _credentials()
     if not NAME_RE.fullmatch(username):
-        return error("Player name must be 3-20 letters, numbers, _ or -", 400)
+        return error("Username must be 3-20 letters, numbers, _ or -", 400)
     if not MIN_PASSWORD <= len(password) <= MAX_PASSWORD:
         return error(f"Password must be {MIN_PASSWORD}-{MAX_PASSWORD} characters", 400)
 
@@ -117,28 +120,43 @@ def register():
         return True
 
     if not storage().update_users(add):
-        return error("That player name is already taken", 409)
-    return jsonify(username=username, token=_token_for(key)), 201
+        return error("That username is already taken", 409)
+    return jsonify(username=username, token=_token_for(key, record["created"])), 201
 
 
 @bp.post("/auth/login")
 def login():
     username, password = _credentials()
     if not username or not password:
-        return error("Enter your player name and password", 400)
+        return error("Enter your username and password", 400)
     account = storage().read_users().get(username.lower())
     if not account:
         check_password_hash(_DUMMY_HASH, password)
-        return error("Wrong player name or password", 401)
+        return error("Wrong username or password", 401)
     if not check_password_hash(account["hash"], password):
-        return error("Wrong player name or password", 401)
-    return jsonify(username=account["display"], token=_token_for(username.lower()))
+        return error("Wrong username or password", 401)
+    return jsonify(username=account["display"], token=_token_for(username.lower(), account["created"]))
 
 
 @bp.get("/auth/me")
 @login_required
 def me():
     return jsonify(username=g.display)
+
+
+@bp.delete("/auth/me")
+@login_required
+def delete_account():
+    """Deletes the signed-in user's files and account. The password must be sent again."""
+    password = str((request.get_json(silent=True) or {}).get("password", ""))
+    account = storage().read_users().get(g.user)
+    if not account or not check_password_hash(account["hash"], password):
+        return error("Wrong password", 403)  # 403, not 401: the session itself is still fine
+
+    with _user_lock(g.user):
+        files = storage().delete_all(g.user)  # files first: if this fails, the account is kept and can retry
+        storage().update_users(lambda users: users.pop(g.user, None))
+    return jsonify(deleted=g.display, files=files)
 
 
 # ------------------------------------------------------------------ files (always the signed-in user's)

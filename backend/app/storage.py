@@ -13,6 +13,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import shutil
 import tempfile
 import threading
 from contextlib import contextmanager
@@ -68,6 +69,15 @@ class LocalStorage:
             return False
         os.unlink(p)
         return True
+
+    def delete_all(self, user: str) -> int:
+        """Removes every file of a user (used when the account is deleted). Returns how many."""
+        folder = self._user_dir(user)
+        if not os.path.isdir(folder):
+            return 0
+        count = sum(1 for e in os.scandir(folder) if e.is_file())
+        shutil.rmtree(folder)
+        return count
 
     # ------------------------------------------------------------ accounts
     @contextmanager
@@ -156,6 +166,13 @@ class MinioStorage:
             raise
         self.client.remove_object(self.bucket, key)
         return True
+
+    def delete_all(self, user: str) -> int:
+        """Removes every object under the user's prefix. Returns how many."""
+        keys = [o.object_name for o in self.client.list_objects(self.bucket, prefix=self._prefix(user), recursive=True)]
+        for key in keys:
+            self.client.remove_object(self.bucket, key)
+        return len(keys)
 
     # ------------------------------------------------------------ accounts
     def read_users(self) -> dict:

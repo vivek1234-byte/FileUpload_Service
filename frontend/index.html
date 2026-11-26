@@ -69,6 +69,14 @@
           <tbody></tbody>
         </table>
       </div>
+
+      <div class="card account">
+        <div>
+          <h2>Account</h2>
+          <p class="muted small">Deleting your account removes all your files for good.</p>
+        </div>
+        <button type="button" id="delete-account" class="secondary danger-outline">Delete account</button>
+      </div>
     </section>
   </main>
 
@@ -79,6 +87,20 @@
       <div class="dialog-actions">
         <button value="cancel" id="confirm-cancel" class="secondary">Cancel</button>
         <button value="ok" id="confirm-ok" class="primary">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="delete-dialog">
+    <form id="delete-form" onsubmit="return false" novalidate>
+      <h3>Delete your account?</h3>
+      <p class="muted">This deletes <b id="delete-summary"></b> and your account. It can't be undone.</p>
+      <label for="delete-password">Type your password to confirm</label>
+      <input id="delete-password" type="password" autocomplete="current-password" maxlength="200">
+      <p id="delete-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="delete-cancel" class="secondary">Cancel</button>
+        <button type="submit" id="delete-confirm" class="danger">Delete account</button>
       </div>
     </form>
   </dialog>
